@@ -34,7 +34,7 @@ function start() {
   ];
 
   inquirer.prompt(initialPrompts).then((answer) => {
-    console.log(answer.initialPrompt);
+    //console.log(answer.initialPrompt);
 
     switch (answer.initialPrompt) {
       case "View All Employees":
@@ -45,6 +45,9 @@ function start() {
         break;
       case "Update Employee Role":
         updateEmployee();
+        break;
+      case "View All Roles":
+        viewRoles();
         break;
       case "Add Role":
         addRole();
@@ -98,43 +101,9 @@ async function addEmployee() {
 
     const { firstName, lastName } = await inquirer.prompt(questions);
 
-    const [roles] = await connection
-      .promise()
-      .query(`SELECT id, title FROM ROLE;`);
+    const roleId = await getRole();
 
-    const roleChoices = roles.map(({ title, id }) => ({
-      name: title,
-      value: id,
-    }));
-
-    const { roleId } = await inquirer.prompt([
-      {
-        type: "list",
-        name: "roleId",
-        message: "Select a role:",
-        choices: roleChoices,
-      },
-    ]);
-
-    const [managers] = await connection
-      .promise()
-      .query(
-        `SELECT id, CONCAT(FIRST_NAME, ' ', LAST_NAME) AS employee FROM EMPLOYEE`
-      );
-
-    const managerChoices = managers.map(({ employee, id }) => ({
-      name: employee,
-      value: id,
-    }));
-
-    const { managerId } = await inquirer.prompt([
-      {
-        type: "list",
-        name: "managerId",
-        message: "Select a manager:",
-        choices: managerChoices,
-      },
-    ]);
+    const managerId = await getManager("Select a manager for this employee");
 
     await connection
       .promise()
@@ -148,3 +117,84 @@ async function addEmployee() {
     console.log("Error adding employee: ", error);
   }
 }
+
+async function updateEmployee() {
+  try {
+    const updateEmployee = await getManager(
+      "Which employee do you want to update?"
+    );
+    const updateRole = await getRole();
+
+    await connection
+      .promise()
+      .query(`UPDATE employee SET ROLE_ID = ? WHERE ID = ?;`, [
+        updateRole,
+        updateEmployee,
+      ]);
+    console.log("Sucessfully updated employee:");
+    start();
+  } catch (error) {
+    console.log(`Error updating employee :`, error);
+  }
+}
+
+async function viewRoles() {
+  try {
+    const [rows] = await connection.promise()
+      .query(`SELECT R.ID, R.TITLE, D.NAME, R.SALARY 
+      FROM ROLE R 
+      JOIN DEPARTMENT D
+      ON R.DEPARTMENT =  D.ID;`);
+    console.table(rows);
+  } catch (error) {
+    console.error(error);
+  }
+  start();
+}
+
+// call this funcion with await to get a list of roles and have an inquirer propmt to get the user to select a role.
+async function getRole() {
+  const [roles] = await connection
+    .promise()
+    .query(`SELECT id, title FROM ROLE;`);
+
+  const roleChoices = roles.map(({ title, id }) => ({
+    name: title,
+    value: id,
+  }));
+
+  const { roleId } = await inquirer.prompt([
+    {
+      type: "list",
+      name: "roleId",
+      message: "Select a role:",
+      choices: roleChoices,
+    },
+  ]);
+  return roleId;
+}
+
+// call this function with await to get a list of managers and have an inquirer propmt to get the user to select a manager.
+async function getManager(displaymessage) {
+  const [managers] = await connection
+    .promise()
+    .query(
+      `SELECT id, CONCAT(FIRST_NAME, ' ', LAST_NAME) AS employee FROM EMPLOYEE`
+    );
+
+  const managerChoices = managers.map(({ employee, id }) => ({
+    name: employee,
+    value: id,
+  }));
+
+  const { managerId } = await inquirer.prompt([
+    {
+      type: "list",
+      name: "managerId",
+      message: displaymessage,
+      choices: managerChoices,
+    },
+  ]);
+  return managerId;
+}
+//Function to update an employee role
