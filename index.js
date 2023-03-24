@@ -15,6 +15,7 @@ const connection = mysql.createConnection({
 
 //Function that asks the inital question in the terminal and calls a function bases off the users answer
 function start() {
+  console.log("\n");
   const initialPrompts = [
     {
       type: "list",
@@ -59,8 +60,7 @@ function start() {
         addDepartment();
         break;
       case "Quit":
-        quit();
-        break;
+        process.exit();
     }
   });
 }
@@ -118,6 +118,7 @@ async function addEmployee() {
   }
 }
 
+//Function to update an employee role
 async function updateEmployee() {
   try {
     const updateEmployee = await getManager(
@@ -152,6 +153,76 @@ async function viewRoles() {
   start();
 }
 
+//This function is used to add a new role to the database after the user enters data in the terminal
+async function addRole() {
+  try {
+    const questions = [
+      {
+        type: "input",
+        name: "role",
+        message: "What is the name of the new role?",
+      },
+      {
+        type: "input",
+        name: "salary",
+        message: "What is the salary for this role?",
+      },
+    ];
+
+    const { role, salary } = await inquirer.prompt(questions);
+
+    const department = await getDepartment();
+
+    await connection
+      .promise()
+      .query(`INSERT INTO role (title, salary, department) VALUES (?, ?, ?);`, [
+        role,
+        salary,
+        department,
+      ]);
+
+    start();
+  } catch (error) {
+    console.log("Error adding role: ", error);
+  }
+}
+
+//This function is called to display current departments
+async function viewDepartments() {
+  try {
+    const [rows] = await connection
+      .promise()
+      .query(`select * from department as department;`);
+    console.table(rows);
+  } catch (error) {
+    console.error(error);
+  }
+  start();
+}
+
+//This function is used to add a new department
+async function addDepartment() {
+  try {
+    const question = [
+      {
+        type: "input",
+        name: "newDepartment",
+        message: "What is the department name you want to add?",
+      },
+    ];
+
+    const { newDepartment } = await inquirer.prompt(question);
+
+    await connection
+      .promise()
+      .query(`INSERT INTO DEPARTMENT (name) VALUES (?);`, newDepartment);
+    console.log("Sucessfully added department:");
+    start();
+  } catch (error) {
+    console.log("Error adding department: ", error);
+  }
+}
+
 // call this funcion with await to get a list of roles and have an inquirer propmt to get the user to select a role.
 async function getRole() {
   const [roles] = await connection
@@ -172,6 +243,27 @@ async function getRole() {
     },
   ]);
   return roleId;
+}
+
+async function getDepartment() {
+  const [departments] = await connection
+    .promise()
+    .query(`SELECT id, title FROM ROLE;`);
+
+  const departmentsChoices = departments.map(({ title, id }) => ({
+    name: title,
+    value: id,
+  }));
+
+  const { deptId } = await inquirer.prompt([
+    {
+      type: "list",
+      name: "deptId",
+      message: "Select a role:",
+      choices: departmentsChoices,
+    },
+  ]);
+  return deptId;
 }
 
 // call this function with await to get a list of managers and have an inquirer propmt to get the user to select a manager.
@@ -197,4 +289,3 @@ async function getManager(displaymessage) {
   ]);
   return managerId;
 }
-//Function to update an employee role
